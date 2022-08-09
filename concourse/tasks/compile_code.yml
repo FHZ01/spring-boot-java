@@ -1,0 +1,13 @@
+platform: linux
+
+image_resource:
+    type: docker-image
+    source: {repository: maven, tag: latest} # Use the prebuilt Maven Docker image so we have all our dependencies
+
+inputs:
+    - name: ((git_resource)) # Git Resource to input to Task. Will be either the name of Pull Request or the Git resource
+outputs:
+    - name: code # Code directory as Output volume. This is then passed as input to the next Task
+
+run:
+    path: ((git_resource))/concourse/scripts/mvn.sh # Run the mvn.sh Shell script

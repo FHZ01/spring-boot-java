@@ -1,0 +1,12 @@
+platform: linux
+
+image_resource:
+    type: docker-image
+    source: {repository: ubuntu, tag: latest}
+
+inputs:
+    - name: code # The compiled code dir from the previous tasks outputs
+    - name: ((git_resource)) # The name of our Pull Request resource
+
+run:
+    path: ((git_resource))/concourse/scripts/sca_scanning.sh

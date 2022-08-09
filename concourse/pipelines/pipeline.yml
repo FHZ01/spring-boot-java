@@ -1,0 +1,90 @@
+---
+resource_types:
+- name: pull-request
+  type: docker-image
+  source:
+    repository: teliaoss/github-pr-resource # Use this preexisiting resource to integrate GitHub with Concourse
+
+resources:
+- name: pull-request # This name is important as it is passed through to the task and used in string comparison
+  type: pull-request
+  icon: github
+  webhook_token: ((webhook_token)) # Webhook token that GitHub uses to post to this resource and trigger a new version. Value sotred in AWS Secrets Manager
+  source:
+    repository: sky-uk/devsecops-poc-spring-boot # Configure the resource
+    access_token: ((git-fhz-pat))
+
+- name: devsecops-poc-spring-boot
+  type: git
+  icon: github
+  check_every: 60m # We will check for new versions every hour as we may not be in a rush
+  source:
+    uri: https://github.com/sky-uk/devsecops-poc-spring-boot.git
+    branch: main # Specify the name of the main production branch
+    username: ((git-fhz-username))
+    password: ((git-fhz-pat))
+
+jobs:
+- name: pr_compile_and_test
+  plan:
+  - get: pull-request
+    trigger: true # This job will automatically trigger when there is a new Pull Request version. i.e. a new Pull request has been opened
+    version: every
+  - put: pull-request #Put to the GitHub Pull Request with the status of pending so it shows in GitHUb
+    params:
+      path: pull-request
+      status: pending
+      context: "security-scanning"
+
+  - task: compile_maven # Run our compile_code.yml Task to use the Maven Docker image and compile/build the Source code
+    file: pull-request/concourse/tasks/compile_code.yml
+    vars:
+      git_resource: pull-request
+    params:
+      git_resource: pull-request
+
+  - task: run_security_tests # Run our execute_sca_scans.yml Task to invoke the Supply Chain Analysis API and scan our code.
+    file: pull-request/concourse/tasks/execute_sca_scans.yml
+    vars:
+      git_resource: pull-request
+    params: # Pass the params we need to the Task. These will be mapped through as Environmental Variables to the shell script
+      access_key_id: ((aws-dev-access-key-id))
+      secret_access_key: ((aws-dev-secret-access-key))
+      blackduck_token: ((gss-blackduck-token))
+      blackduck_group: "Concourse"
+      git_resource: pull-request
+      main_branch_name: main # The name of the main branch.
+    on_failure: # If the SCA task fails then we Put back to GitHub the status of failure
+      put: pull-request
+      params:
+        path: pull-request
+        status: failure
+        context: "security-scanning"
+    on_success: # If the SCA task suceeds then we Put back to GitHub the status of success
+      put: pull-request
+      params:
+        path: pull-request
+        status: success
+        context: "security-scanning"
+
+- name: release_compile_and_test
+  plan:
+  - get: devsecops-poc-spring-boot
+    trigger: true
+  - task: compile_maven # Run our compile_code.yml Task to use the Maven Docker image and compile/build the Source code
+    file: devsecops-poc-spring-boot/concourse/tasks/compile_code.yml
+    vars: # Dynmaically pass the Git resource we want to the Task config
+      git_resource: devsecops-poc-spring-boot
+    params: # Dynmaically pass the Git resource we want to the Task so it is mapped through as an Env var
+      git_resource: devsecops-poc-spring-boot
+  - task: run_security_tests # Run our execute_sca_scans.yml Task to invoke the Supply Chain Analysis API and scan our code.
+    file: devsecops-poc-spring-boot/concourse/tasks/execute_sca_scans.yml
+    vars: # Dynmaically pass the Git resource we want to the Task config
+      git_resource: devsecops-poc-spring-boot
+    params: # Pass the params we need to the Task. These will be mapped through as Environmental Variables to the shell script
+      access_key_id: ((aws-dev-access-key-id))
+      secret_access_key: ((aws-dev-secret-access-key))
+      blackduck_token: ((gss-blackduck-token))
+      blackduck_group: "Concourse"
+      git_resource: devsecops-poc-spring-boot
+      main_branch_name: main # The name of the main branch.
