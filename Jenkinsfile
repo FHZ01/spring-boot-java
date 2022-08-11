@@ -12,7 +12,7 @@ pipeline {
         stage('Test on Linux') {
             agent any  
             steps {
-                ls -ltrh ./src
+               sh 'ls -ltrh ./src'
             }
             post {
                 always {
