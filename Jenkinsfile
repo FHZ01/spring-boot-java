@@ -6,7 +6,7 @@ pipeline {
             steps {
                 checkout scm
                 sh 'echo Hello'
-                maven compile
+                sh 'maven compile .'
             }
         }
         stage('Test on Linux') {
