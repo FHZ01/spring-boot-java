@@ -6,7 +6,7 @@ pipeline {
             steps {
                 checkout scm
                 sh 'echo Hello'
-                sh '/opt/apache-maven-3.8.1/bin/mvn compile .'
+                sh '/opt/apache-maven-3.8.1/bin/mvn validate'
             }
         }
         stage('Test on Linux') {
