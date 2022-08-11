@@ -10,12 +10,9 @@ pipeline {
             }
         }
         stage('Test on Linux') {
-            agent { 
-                label 'linux'
-            }
+            agent any  
             steps {
-                unstash 'app' 
-                sh 'make check'
+                ls -ltrh ./src
             }
             post {
                 always {
