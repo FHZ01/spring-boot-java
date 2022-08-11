@@ -14,11 +14,6 @@ pipeline {
             steps {
                sh 'ls -ltrh ./src'
             }
-            post {
-                always {
-                    junit '**/target/*.xml'
-                }
-            }
         }
     }
 }
